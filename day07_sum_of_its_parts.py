@@ -6,7 +6,7 @@ Day 7: The Sum of Its Parts
 import re
 
 from collections import defaultdict
-from typing import Tuple, Set, Dict, List
+from typing import Tuple, Set, Dict, List, NamedTuple
 from copy import copy, deepcopy
 
 # regex for parsing the input lines
@@ -115,15 +115,71 @@ print(order)
 
 # With 5 workers and the 60+ second step durations described above, how long will it take to complete all of the steps?
 
-def step_duration(step: str) -> int:
-    return 60 + ord(step) - ord("A") + 1
+def step_duration(step: str, base: int = 60) -> int:
+    return base + ord(step) - ord("A") + 1
 
 assert step_duration("A") == 61
 assert step_duration("Z") == 86
+assert step_duration("D", 0) == 4
 
 # Part B to be refactored...
 
-def find_time_to_complete(requirements: List[Req], num_workers: int) -> int:
-    pass
+class WorkItem(NamedTuple):
+    """
+    just a "data type" for workitems
+    """
+    item_name: str
+    worker_id: int
+    start_time: int
+    end_time: int
+    
 
-# 880 right answer.
+def find_time_to_complete(requirements: List[Req], num_workers: int, base: int = 60) -> int:
+    """
+    returns the total time required for completing all the steps
+    """
+    prereqs = get_prerequirements(requirements)
+    
+    #workers = {id for id in range(num_workers)}
+    active_work = [None for _ in range(num_workers)]   # one slot for each worker
+    
+    time = 0
+    
+    # Loop until all steps are finished
+    while prereqs or any(active_work):  # the latter part of the condition: in the end, take care that we track the situation until the very end
+        # Check if someone finished:
+        for idx, work_item in enumerate(active_work):
+            if work_item and work_item.end_time <= time:  # guard agains NoneType as work_item (in the beginning)
+                active_work[idx] = None
+               
+               # then update the prereqs by removing the finished step from the requirements (this is no longer constraining as its done...)
+                for reqs in prereqs.values():
+                    if work_item.item_name in reqs:
+                        reqs.remove(work_item.item_name)
+                
+        
+        # get available workers
+        available_workers = [i for i in range(num_workers) if active_work[i] is None]
+        
+        # Allowed steps
+        allowed_steps = [step for step, reqs in prereqs.items() if not reqs]   #  empty sequences are false.
+        allowed_steps.sort()      
+        
+
+        # Allocate allowed steps to workers (as many as possible)
+        for worker_id, step in zip(available_workers, allowed_steps):  # shorter
+            active_work[worker_id] = WorkItem(step, worker_id, time, time + step_duration(step, base))
+            del prereqs[step]
+        
+        
+        # nothing happens until the min of WorkItem end_times. Fast-forward there:
+        if any(active_work):
+            time = min(work_item.end_time for work_item in active_work if work_item)  # guard against NoneType in the end
+
+    return time
+
+# unit test:
+assert find_time_to_complete(TEST_REQS, num_workers=2, base=0) == 15
+
+print(find_time_to_complete(reqs, num_workers=5))
+# 880 is the right answer.
