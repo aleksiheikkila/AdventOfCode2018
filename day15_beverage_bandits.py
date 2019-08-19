@@ -83,7 +83,7 @@ class Battle():
 
 
     def step(self, num_rounds: int = 1):
-        for round in range(num_rounds):
+        for _ in range(num_rounds):
             self.round += 1
             #print(f"============================\nRound {self.round} begins!") 
 
